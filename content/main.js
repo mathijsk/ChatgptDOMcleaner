@@ -1,4 +1,4 @@
-console.log("ChatGPT DOM Cleaner v1.3 loaded")
+console.log("ChatGPT DOM Cleaner v1.4 loaded")
 
 const defaults={
 visibleMessages:200,
