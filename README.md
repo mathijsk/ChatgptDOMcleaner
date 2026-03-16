@@ -1,12 +1,18 @@
 <p align="center">
   <img src="screenshots/ChatgptDOMcleaner.png" alt="ChatGPT DOM Cleaner Banner">
 </p>
+
+<h1 align="center">ChatGPT DOM Cleaner</h1>
+
+<p align="center">
+Keep ChatGPT responsive during long conversations by collapsing large messages and trimming old DOM elements.
+</p>
+
 <p align="center">
   <a href="https://buymeacoffee.com/mathijsk">
-    <img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=☕&slug=mathijsk&button_colour=0367b8&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" />
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" height="60">
   </a>
 </p>
-# ChatGPT DOM Cleaner
 
 ChatGPT DOM Cleaner
 
