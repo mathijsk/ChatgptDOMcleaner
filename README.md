@@ -154,7 +154,7 @@ Install the signed `.xpi` file through Firefox:
 about:addons → Install Add-on From File
 
 Collapsed code blocks when scrolling back:
-![Collapsed code](screenshots/ChatgptDOMcleaner-1)
+![Collapsed code](screenshots/ChatgptDOMcleaner-1.png)
 
 Trim the settings best for your own needs:
 ![ChatGPT DOM Cleaner](screenshots/ChatgptDOMcleaner-2.png)
