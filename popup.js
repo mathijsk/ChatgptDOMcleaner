@@ -8,17 +8,37 @@ codeCollapseAfter:10,
 collapseTextAfterLines:20
 }
 
+// Cross-browser API
+const browserApi = typeof browser !== "undefined" ? browser : chrome;
+
+// Storage wrappers (works in Firefox + Chrome + Edge + Opera)
+function storageGet(keys){
+return new Promise(resolve=>{
+browserApi.storage.local.get(keys,(result)=>{
+resolve(result)
+})
+})
+}
+
+function storageSet(data){
+return new Promise(resolve=>{
+browserApi.storage.local.set(data,()=>{
+resolve()
+})
+})
+}
+
 async function loadSettings(){
 
-const settings =
-await browser.storage.local.get(defaults)
+const settings = await storageGet(defaults)
 
 for(const key in settings){
 
 const el=document.getElementById(key)
 
-if(el)
+if(el){
 el.value=settings[key]
+}
 
 }
 
@@ -54,15 +74,22 @@ document.getElementById("softLimit").value
 
 hardLimit:Number(
 document.getElementById("hardLimit").value
+
 )
 
 }
 
-await browser.storage.local.set(data)
+await storageSet(data)
 
 }
 
-document.getElementById("save")
+// Wait until popup DOM is ready
+document.addEventListener("DOMContentLoaded",()=>{
+
+document
+.getElementById("save")
 .addEventListener("click",saveSettings)
 
 loadSettings()
+
+})
