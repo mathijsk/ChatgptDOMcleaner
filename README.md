@@ -154,10 +154,10 @@ Install the signed `.xpi` file through Firefox:
 about:addons → Install Add-on From File
 
 Collapsed code blocks when scrolling back:
-![Collapsed code](screenshots/screenshot1.png)
+![Collapsed code](screenshots/ChatgptDOMcleaner-1)
 
 Trim the settings best for your own needs:
-![ChatGPT DOM Cleaner](screenshots/screenshot2.png)
+![ChatGPT DOM Cleaner](screenshots/ChatgptDOMcleaner-2.png)
 Notes
 
 This extension is simply a small utility intended to make long ChatGPT sessions easier to work with, especially when dealing with large pasted inputs or code blocks.
