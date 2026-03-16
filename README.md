@@ -14,8 +14,6 @@ Keep ChatGPT responsive during long conversations by collapsing large messages a
   </a>
 </p>
 
-ChatGPT DOM Cleaner
-
 ChatGPT DOM Cleaner is a small Firefox extension that keeps the ChatGPT web interface responsive during long conversations.
 
 If you’ve ever used ChatGPT for coding sessions or debugging help, you may have noticed that after a while the page starts getting slow. Scrolling becomes choppy, typing lags, and memory usage gradually increases.
