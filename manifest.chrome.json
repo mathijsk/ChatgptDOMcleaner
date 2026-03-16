@@ -1,22 +1,15 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT DOM Cleaner",
-  "version": "1.4",
-  "description": "Reduces ChatGPT RAM usage by trimming old DOM messages safely.",
+  "version": "1.6",
+  "description": "Keeps ChatGPT responsive in long conversations by collapsing large messages and trimming old DOM elements.",
 
   "permissions": ["storage"],
 
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "chatgpt-dom-cleaner@local",
-      "strict_min_version": "140.0",
-      "data_collection_permissions": {
-        "required": [
-          "none"
-        ],
-        "optional": []
-      }
-    }
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
 
   "content_scripts": [
@@ -31,6 +24,10 @@
   ],
 
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
   }
 }
