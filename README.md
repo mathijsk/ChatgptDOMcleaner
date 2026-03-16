@@ -1,7 +1,11 @@
 <p align="center">
   <img src="screenshots/ChatgptDOMcleaner.png" alt="ChatGPT DOM Cleaner Banner">
 </p>
-
+<p align="center">
+  <a href="https://buymeacoffee.com/mathijsk">
+    <img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=☕&slug=mathijsk&button_colour=0367b8&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" />
+  </a>
+</p>
 # ChatGPT DOM Cleaner
 
 ChatGPT DOM Cleaner
