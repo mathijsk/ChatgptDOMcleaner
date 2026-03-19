@@ -166,6 +166,8 @@ Collapsed code blocks when scrolling back:
 
 Trim the settings best for your own needs:
 ![ChatGPT DOM Cleaner](screenshots/ChatgptDOMcleaner-2.png)
-Notes
+
+Long user messages are collapsed immediately:
+![Collapsed user message](screenshots/ChatgptDOMcleaner-2.png)
 
 This extension is simply a small utility intended to make long ChatGPT sessions easier to work with, especially when dealing with large pasted inputs or code blocks.
