@@ -1,899 +1,481 @@
-console.log("ChatGPT DOM Cleaner v1.5 loaded")
+console.log("ChatGPT DOM Cleaner v1.7 loaded")
 
-const defaults={
-visibleMessages:200,
-trimTrigger:260,
-aggressiveKeep:120,
-softLimit:60000,
-hardLimit:90000,
-codeCollapseAfter:10,
-collapseTextAfterLines:20,
-restoreChunkSize:10
+const defaults = {
+    visibleMessages: 200,
+    trimTrigger: 260,
+    aggressiveKeep: 120,
+    softLimit: 60000,
+    hardLimit: 90000,
+    codeCollapseAfter: 10,
+    collapseTextAfterLines: 20,
+    restoreChunkSize: 10
 }
 
-// Cross-browser API
 const browserApi = typeof browser !== "undefined" ? browser : chrome;
 
-// Storage wrappers
-function storageGet(keys){
-return new Promise(resolve=>{
-browserApi.storage.local.get(keys,result=>{
-resolve(result)
-})
-})
+// ================= STORAGE =================
+
+function storageGet(keys) {
+    return new Promise(resolve => {
+        browserApi.storage.local.get(keys, result => resolve(result))
+    })
 }
 
-function storageSet(data){
-return new Promise(resolve=>{
-browserApi.storage.local.set(data,()=>{
-resolve()
-})
-})
+function storageSet(data) {
+    return new Promise(resolve => {
+        browserApi.storage.local.set(data, () => resolve())
+    })
 }
 
-let settings={...defaults}
+// ================= STATE =================
 
-let turnRegistry=[]
-let hiddenTurns=[]
-let processedTurns=new WeakSet()
-let pinnedTurns=new WeakSet()
+let settings = { ...defaults }
 
-let observerTimer=null
-let scrollTimer=null
+let turnRegistry = []
+let hiddenTurns = []
+let pinnedTurns = new WeakSet()
 
-let statsText=null
+let observerTimer = null
+let scrollTimer = null
 
-// ---------------- SETTINGS ----------------
+let statsText = null
 
-async function loadSettings(){
-const stored=await storageGet(defaults)
-settings={...defaults,...stored}
+// ================= SETTINGS =================
+
+async function loadSettings() {
+    const stored = await storageGet(defaults)
+    settings = { ...defaults, ...stored }
 }
 
-// ---------------- UTIL ----------------
+// ================= UTIL =================
 
-function countLines(text){
-return text.split("\n").length
+function countLines(text) {
+    return text.split("\n").length
 }
 
-function getTurnRole(turn){
-const node=turn.querySelector("[data-message-author-role]")
-return node?.getAttribute("data-message-author-role")
+function getTurnRole(turn) {
+    return turn.getAttribute("data-message-author-role")
 }
 
-// ---------------- CODE COLLAPSE ----------------
+// ================= GET TURNS =================
 
-function collapseCodeBlocks(turn,index,total){
-
-const distance=total-index
-
-if(distance<=settings.codeCollapseAfter)
-return
-
-const blocks=turn.querySelectorAll("pre")
-
-blocks.forEach(block=>{
-
-if(block.dataset.domcleanerCollapsed)
-return
-
-block.dataset.domcleanerCollapsed="true"
-
-const wrapper=document.createElement("div")
-
-wrapper.style.border="1px solid #666"
-wrapper.style.padding="6px"
-wrapper.style.margin="6px 0"
-
-const btn=document.createElement("button")
-btn.textContent="Expand collapsed code block"
-btn.style.fontSize="11px"
-
-btn.onclick=()=>wrapper.replaceWith(block)
-
-wrapper.appendChild(btn)
-
-block.replaceWith(wrapper)
-
-})
-
+function getAllTurns() {
+    return [...document.querySelectorAll('[data-message-author-role]')]
 }
 
-// ---------------- USER TEXT COLLAPSE ----------------
+// ================= CLEAN REGISTRY =================
 
-function collapseLargeUserText(turn){
-
-if(getTurnRole(turn)!=="user")
-return
-
-const container=turn.querySelector("[data-message-author-role]")
-
-if(!container) return
-
-const lines=countLines(container.textContent)
-
-if(lines<settings.collapseTextAfterLines)
-return
-
-if(container.dataset.domcleanerCollapsed)
-return
-
-container.dataset.domcleanerCollapsed="true"
-
-const wrapper=document.createElement("div")
-
-wrapper.style.border="1px solid #666"
-wrapper.style.padding="6px"
-wrapper.style.margin="6px 0"
-
-const btn=document.createElement("button")
-
-btn.textContent=`Expand long message (${lines} lines)`
-btn.style.fontSize="11px"
-
-btn.onclick=()=>wrapper.replaceWith(container)
-
-wrapper.appendChild(btn)
-
-container.replaceWith(wrapper)
-
+function cleanRegistry() {
+    turnRegistry = turnRegistry.filter(turn => document.body.contains(turn))
 }
 
-// ---------------- PROCESS TURN ----------------
+// ================= CODE COLLAPSE =================
 
-function processTurn(turn){
+function collapseCodeBlocks(turn, index, total) {
 
-if(processedTurns.has(turn))
-return
+    const distance = total - index
 
-processedTurns.add(turn)
+    if (distance <= settings.codeCollapseAfter) return
 
-collapseLargeUserText(turn)
+    const blocks = turn.querySelectorAll("pre")
 
+    blocks.forEach(block => {
+
+        if (block.dataset.domcleanerCollapsed) return
+
+        const applyCollapse = () => {
+
+            if (!document.body.contains(block)) return
+            if (block.dataset.domcleanerCollapsed) return
+
+            block.dataset.domcleanerCollapsed = "true"
+
+            const wrapper = document.createElement("div")
+            wrapper.style.border = "1px solid #4caf50"
+            wrapper.style.background = "rgba(76, 175, 80, 0.08)"
+            wrapper.style.borderRadius = "12px"
+            wrapper.style.padding = "6px"
+            wrapper.style.margin = "6px 0"
+            wrapper.style.transition = "all 0.15s ease"
+
+            wrapper.onmouseenter = () => {
+                wrapper.style.background = "rgba(76, 175, 80, 0.12)"
+            }
+            wrapper.onmouseleave = () => {
+                wrapper.style.background = "rgba(76, 175, 80, 0.08)"
+            }
+
+            const btn = document.createElement("button")
+            btn.textContent = "Expand collapsed code block"
+            btn.style.fontSize = "14px"
+            btn.style.background = "none"
+            btn.style.border = "none"
+            btn.style.cursor = "pointer"
+            btn.style.padding = "0"
+            btn.style.color = "#4caf50"
+
+            btn.onclick = () => wrapper.replaceWith(block)
+
+            wrapper.appendChild(btn)
+            block.replaceWith(wrapper)
+        }
+
+        // ONLY delay for newest messages (hydration zone)
+        if (distance < 20) {
+            requestAnimationFrame(() => applyCollapse())
+        } else {
+            applyCollapse()
+        }
+
+    })
 }
 
-// ---------------- RECHECK CODE COLLAPSE ----------------
+// ================= USER TEXT COLLAPSE =================
 
-function reevaluateCodeCollapse(){
+function collapseLargeUserText(turn) {
 
-const total=turnRegistry.length
+    if (getTurnRole(turn) !== "user") return
 
-turnRegistry.forEach((turn,i)=>{
-collapseCodeBlocks(turn,i,total)
-})
+    const container = turn.querySelector(".user-message-bubble-color")
+    if (!container) return
 
+    const textNode = container.querySelector('[class*="whitespace-pre"]')
+    if (!textNode) return
+
+    const lines = countLines(textNode.textContent)
+
+    if (lines < settings.collapseTextAfterLines) return
+    if (container.dataset.domcleanerCollapsed) return
+
+    container.dataset.domcleanerCollapsed = "true"
+
+    const wrapper = document.createElement("div")
+    wrapper.style.border = "1px solid #2196f3"
+    wrapper.style.background = "rgba(33, 150, 243, 0.08)"
+    wrapper.style.borderRadius = "12px"
+    wrapper.style.padding = "6px"
+    wrapper.style.margin = "6px 0"
+    wrapper.style.maxWidth = "100%"
+    wrapper.style.transition = "all 0.15s ease"
+
+    wrapper.onmouseenter = () => {
+        wrapper.style.background = "rgba(33, 150, 243, 0.12)"
+    }
+    wrapper.onmouseleave = () => {
+        wrapper.style.background = "rgba(33, 150, 243, 0.08)"
+    }
+
+    const btn = document.createElement("button")
+    btn.textContent = `Expand long message (${lines} lines)`
+    btn.style.fontSize = "14px"
+    btn.style.background = "none"
+    btn.style.border = "none"
+    btn.style.cursor = "pointer"
+    btn.style.padding = "0"
+    btn.style.color = "#2196f3"
+
+    btn.onclick = () => wrapper.replaceWith(container)
+
+    wrapper.appendChild(btn)
+
+    container.replaceWith(wrapper)
 }
 
-// ---------------- INITIAL SCAN ----------------
+// ================= PROCESS =================
 
-function initialScan(){
+function processTurn(turn) {
 
-document
-.querySelectorAll('article[data-testid^="conversation-turn"]')
-.forEach(turn=>{
+    const len = turn.textContent.length
 
-if(!turnRegistry.includes(turn))
-turnRegistry.push(turn)
+    // ignore tiny / loading states
+    if (len < 50) return
 
-processTurn(turn)
+    const container = turn.querySelector(".user-message-bubble-color")
+    if (!container) return
 
-})
+    const textNode = container.querySelector('[class*="whitespace-pre"]')
+    if (!textNode) return
 
-reevaluateCodeCollapse()
+    const lines = countLines(textNode.textContent)
 
+    // not large enough → never collapse
+    if (lines < settings.collapseTextAfterLines) return
+
+    // already collapsed → nothing to do
+    if (container.dataset.domcleanerCollapsed) return
+
+    // delay one frame to let DOM settle
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+
+            // still valid & not already collapsed?
+            if (!document.body.contains(container)) return
+            if (container.dataset.domcleanerCollapsed) return
+
+            collapseLargeUserText(turn)
+
+        })
+    })
 }
 
-// ---------------- TRIM ----------------
+// ================= RECHECK CODE =================
 
-function trimTurns(){
+function reevaluateCodeCollapse() {
 
-if(turnRegistry.length<=settings.trimTrigger)
-return
+    const total = turnRegistry.length
 
-let removed=0
-
-for(const turn of turnRegistry){
-
-if(pinnedTurns.has(turn))
-continue
-
-if(turnRegistry.length-removed<=settings.visibleMessages)
-break
-
-hiddenTurns.push(turn)
-
-const placeholder=document.createElement("div")
-
-placeholder.style.opacity=".6"
-placeholder.style.fontSize="12px"
-placeholder.style.padding="6px"
-placeholder.style.borderLeft="3px solid #888"
-
-placeholder.textContent="Message hidden by ChatGPT DOM Cleaner"
-
-turn.replaceWith(placeholder)
-
-removed++
-
+    turnRegistry.forEach((turn, i) => {
+        collapseCodeBlocks(turn, i, total)
+    })
 }
 
+// ================= INITIAL SCAN =================
+
+function initialScan() {
+
+    getAllTurns().forEach(turn => {
+
+        if (!turnRegistry.includes(turn)) {
+            turnRegistry.push(turn)
+        }
+
+        processTurn(turn)
+    })
+
+    reevaluateCodeCollapse()
 }
 
-// ---------------- RESTORE ----------------
+// ================= TRIM =================
 
-function restoreTurns(){
+function trimTurns() {
 
-if(window.scrollY>200)
-return
+    if (turnRegistry.length <= settings.trimTrigger) return
 
-const container=detectConversationContainer()
+    let removed = 0
 
-if(!container) return
+    for (const turn of turnRegistry) {
 
-const chunk=settings.restoreChunkSize||10
+        if (pinnedTurns.has(turn)) continue
 
-for(let i=0;i<chunk;i++){
+        if (turnRegistry.length - removed <= settings.visibleMessages) break
 
-if(!hiddenTurns.length)
-break
+        hiddenTurns.push(turn)
 
-const turn=hiddenTurns.pop()
+        const placeholder = document.createElement("div")
+        placeholder.style.opacity = ".6"
+        placeholder.style.fontSize = "12px"
+        placeholder.style.padding = "6px"
+        placeholder.style.borderLeft = "3px solid #888"
+        placeholder.textContent = "Message hidden by ChatGPT DOM Cleaner"
 
-container.prepend(turn)
+        turn.replaceWith(placeholder)
 
+        removed++
+    }
 }
 
+// ================= RESTORE =================
+
+function restoreTurns() {
+
+    if (window.scrollY > 200) return
+
+    const container = detectConversationContainer()
+    if (!container) return
+
+    const chunk = settings.restoreChunkSize || 10
+
+    for (let i = 0; i < chunk; i++) {
+
+        if (!hiddenTurns.length) break
+
+        const turn = hiddenTurns.pop()
+        container.prepend(turn)
+    }
 }
 
-// ---------------- DOM SAFETY ----------------
+// ================= DOM SAFETY =================
 
-function domSafetyCheck(){
+function domSafetyCheck() {
 
-const nodes=document.body.querySelectorAll("*").length
+    const nodes = document.getElementsByTagName("*").length
 
-if(nodes>settings.hardLimit){
+    if (nodes > settings.hardLimit) {
 
-console.warn("DOM Cleaner HARD LIMIT",nodes)
+        console.warn("DOM Cleaner HARD LIMIT", nodes)
 
-let removed=0
+        let removed = 0
 
-for(const turn of turnRegistry){
+        for (const turn of turnRegistry) {
 
-if(pinnedTurns.has(turn))
-continue
+            if (pinnedTurns.has(turn)) continue
 
-if(turnRegistry.length-removed<=settings.aggressiveKeep)
-break
+            if (turnRegistry.length - removed <= settings.aggressiveKeep) break
 
-turn.remove()
+            turn.remove()
+            removed++
+        }
 
-removed++
+    } else if (nodes > settings.softLimit) {
 
+        trimTurns()
+    }
 }
 
-}
-else if(nodes>settings.softLimit){
+// ================= PINNING =================
 
-trimTurns()
+function enablePinning() {
 
-}
+    document.addEventListener("dblclick", e => {
 
-}
+        const turn = e.target.closest('[data-message-author-role]')
+        if (!turn) return
 
-// ---------------- PINNING ----------------
-
-function enablePinning(){
-
-document.addEventListener("dblclick",e=>{
-
-const turn=e.target.closest('article[data-testid^="conversation-turn"]')
-
-if(!turn) return
-
-pinnedTurns.add(turn)
-
-turn.style.outline="2px solid #4caf50"
-
-})
-
+        pinnedTurns.add(turn)
+        turn.style.outline = "2px solid #4caf50"
+    })
 }
 
-// ---------------- PANEL ----------------
+// ================= PANEL =================
 
-function createPanel(){
+function createPanel() {
 
-const panel=document.createElement("div")
+    const panel = document.createElement("div")
 
-panel.style.position="fixed"
-panel.style.bottom="10px"
-panel.style.right="10px"
-panel.style.background="rgba(0,0,0,.75)"
-panel.style.color="white"
-panel.style.padding="8px"
-panel.style.borderRadius="6px"
-panel.style.fontSize="11px"
-panel.style.zIndex="9999"
+    panel.style.position = "fixed"
+    panel.style.bottom = "10px"
+    panel.style.right = "10px"
+    panel.style.background = "rgba(0,0,0,.75)"
+    panel.style.color = "white"
+    panel.style.padding = "8px"
+    panel.style.borderRadius = "6px"
+    panel.style.fontSize = "11px"
+    panel.style.zIndex = "9999"
 
-const cleanBtn=document.createElement("button")
+    const cleanBtn = document.createElement("button")
+    cleanBtn.textContent = "Clean DOM"
+    cleanBtn.style.display = "block"
+    cleanBtn.onclick = trimTurns
 
-cleanBtn.textContent="Clean DOM"
-cleanBtn.style.display="block"
-cleanBtn.onclick=trimTurns
+    panel.appendChild(cleanBtn)
 
-panel.appendChild(cleanBtn)
+    statsText = document.createElement("div")
+    panel.appendChild(statsText)
 
-statsText=document.createElement("div")
-panel.appendChild(statsText)
-
-document.body.appendChild(panel)
-
+    document.body.appendChild(panel)
 }
 
-function updateStats(){
+function updateStats() {
 
-if(!statsText) return
+    if (!statsText) return
 
-const nodes=document.body.querySelectorAll("*").length
+    const nodes = document.getElementsByTagName("*").length
 
-statsText.textContent=`Turns:${turnRegistry.length} DOM:${nodes}`
-
+    statsText.textContent = `Turns:${turnRegistry.length} DOM:${nodes}`
 }
 
-// ---------------- CONTAINER DETECTION ----------------
+// ================= CONTAINER =================
 
-function detectConversationContainer(){
+function detectConversationContainer() {
 
-const firstTurn=document.querySelector('article[data-testid^="conversation-turn"]')
+    const msg = document.querySelector('[data-message-author-role]')
+    if (!msg) return null
 
-if(!firstTurn) return null
-
-return firstTurn.parentElement
-
+    return msg.closest('[data-testid]')?.parentElement || msg.parentElement
 }
 
-// ---------------- OBSERVER ----------------
+// ================= OBSERVER =================
 
-function startObserver(){
+function startObserver() {
 
-const container=detectConversationContainer()
+    const observer = new MutationObserver(() => {
 
-if(!container) return
+        if (observerTimer) return
 
-const observer=new MutationObserver(mutations=>{
+        observerTimer = setTimeout(() => {
 
-if(observerTimer) return
+            cleanRegistry()
 
-observerTimer=setTimeout(()=>{
+            const turns = getAllTurns()
 
-mutations.forEach(m=>{
+            turns.forEach(turn => {
 
-m.addedNodes.forEach(node=>{
+                if (!turnRegistry.includes(turn)) {
+                    turnRegistry.push(turn)
+                }
 
-if(node.nodeType!==1) return
+                processTurn(turn)
+            })
 
-if(node.matches?.('article[data-testid^="conversation-turn"]')){
+            reevaluateCodeCollapse()
 
-if(!turnRegistry.includes(node))
-turnRegistry.push(node)
+            observerTimer = null
 
-processTurn(node)
-reevaluateCodeCollapse()
+        }, 150)
 
+    })
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    })
 }
 
-})
+// ================= SCROLL =================
 
-})
+function startScrollHandler() {
 
-observerTimer=null
+    window.addEventListener("scroll", () => {
 
-},200)
+        if (scrollTimer) return
 
-})
+        scrollTimer = setTimeout(() => {
 
-observer.observe(container,{childList:true})
+            restoreTurns()
+            reevaluateCodeCollapse()
 
+            scrollTimer = null
+
+        }, 150)
+
+    })
 }
 
-// ---------------- SCROLL ----------------
+// ================= WAIT =================
 
-function startScrollHandler(){
+function waitForConversation() {
 
-window.addEventListener("scroll",()=>{
+    return new Promise(resolve => {
 
-if(scrollTimer) return
+        const interval = setInterval(() => {
 
-scrollTimer=setTimeout(()=>{
+            if (document.querySelector('[data-message-author-role]')) {
+                clearInterval(interval)
+                resolve()
+            }
 
-restoreTurns()
-reevaluateCodeCollapse()
+        }, 200)
 
-scrollTimer=null
-
-},150)
-
-})
-
+    })
 }
 
-// ---------------- WAIT FOR CHAT ----------------
+// ================= INIT =================
 
-function waitForConversation(){
+async function init() {
 
-return new Promise(resolve=>{
+    await loadSettings()
 
-const interval=setInterval(()=>{
+    createPanel()
+    enablePinning()
 
-if(document.querySelector('article[data-testid^="conversation-turn"]')){
+    await waitForConversation()
 
-clearInterval(interval)
-resolve()
+    initialScan()
+    startObserver()
+    startScrollHandler()
 
-}
-
-},200)
-
-})
-
-}
-
-// ---------------- INIT ----------------
-
-async function init(){
-
-await loadSettings()
-
-createPanel()
-enablePinning()
-
-await waitForConversation()
-
-initialScan()
-startObserver()
-startScrollHandler()
-
-setInterval(domSafetyCheck,10000)
-setInterval(updateStats,10000)
-
-}
-
-init()console.log("ChatGPT DOM Cleaner v1.4 loaded")
-
-const defaults={
-visibleMessages:200,
-trimTrigger:260,
-aggressiveKeep:120,
-softLimit:60000,
-hardLimit:90000,
-codeCollapseAfter:10,
-collapseTextAfterLines:20,
-restoreChunkSize:10
-}
-
-let settings={...defaults}
-
-let turnRegistry=[]
-let hiddenTurns=[]
-let processedTurns=new WeakSet()
-let pinnedTurns=new WeakSet()
-
-let observerTimer=null
-let scrollTimer=null
-
-let statsText=null
-
-// ---------------- SETTINGS ----------------
-
-async function loadSettings(){
-const stored=await browser.storage.local.get(defaults)
-settings={...defaults,...stored}
-}
-
-// ---------------- UTIL ----------------
-
-function countLines(text){
-return text.split("\n").length
-}
-
-function getTurnRole(turn){
-const node=turn.querySelector("[data-message-author-role]")
-return node?.getAttribute("data-message-author-role")
-}
-
-// ---------------- CODE COLLAPSE ----------------
-
-function collapseCodeBlocks(turn,index,total){
-
-const distance=total-index
-
-if(distance<=settings.codeCollapseAfter)
-return
-
-const blocks=turn.querySelectorAll("pre")
-
-blocks.forEach(block=>{
-
-if(block.dataset.domcleanerCollapsed)
-return
-
-block.dataset.domcleanerCollapsed="true"
-
-const wrapper=document.createElement("div")
-
-wrapper.style.border="1px solid #666"
-wrapper.style.padding="6px"
-wrapper.style.margin="6px 0"
-
-const btn=document.createElement("button")
-btn.textContent="Expand collapsed code block"
-btn.style.fontSize="11px"
-
-btn.onclick=()=>wrapper.replaceWith(block)
-
-wrapper.appendChild(btn)
-
-block.replaceWith(wrapper)
-
-})
-
-}
-
-// ---------------- USER TEXT COLLAPSE ----------------
-
-function collapseLargeUserText(turn){
-
-if(getTurnRole(turn)!=="user")
-return
-
-const container=turn.querySelector("[data-message-author-role]")
-
-if(!container) return
-
-const lines=countLines(container.textContent)
-
-if(lines<settings.collapseTextAfterLines)
-return
-
-if(container.dataset.domcleanerCollapsed)
-return
-
-container.dataset.domcleanerCollapsed="true"
-
-const wrapper=document.createElement("div")
-
-wrapper.style.border="1px solid #666"
-wrapper.style.padding="6px"
-wrapper.style.margin="6px 0"
-
-const btn=document.createElement("button")
-
-btn.textContent=`Expand long message (${lines} lines)`
-btn.style.fontSize="11px"
-
-btn.onclick=()=>wrapper.replaceWith(container)
-
-wrapper.appendChild(btn)
-
-container.replaceWith(wrapper)
-
-}
-
-// ---------------- PROCESS TURN ----------------
-
-function processTurn(turn){
-
-if(processedTurns.has(turn))
-return
-
-processedTurns.add(turn)
-
-collapseLargeUserText(turn)
-
-}
-
-// ---------------- RECHECK CODE COLLAPSE ----------------
-
-function reevaluateCodeCollapse(){
-
-const total=turnRegistry.length
-
-turnRegistry.forEach((turn,i)=>{
-collapseCodeBlocks(turn,i,total)
-})
-
-}
-
-// ---------------- INITIAL SCAN ----------------
-
-function initialScan(){
-
-document
-.querySelectorAll('article[data-testid^="conversation-turn"]')
-.forEach(turn=>{
-
-if(!turnRegistry.includes(turn))
-turnRegistry.push(turn)
-
-processTurn(turn)
-
-})
-
-reevaluateCodeCollapse()
-
-}
-
-// ---------------- TRIM ----------------
-
-function trimTurns(){
-
-if(turnRegistry.length<=settings.trimTrigger)
-return
-
-let removed=0
-
-for(const turn of turnRegistry){
-
-if(pinnedTurns.has(turn))
-continue
-
-if(turnRegistry.length-removed<=settings.visibleMessages)
-break
-
-hiddenTurns.push(turn)
-
-const placeholder=document.createElement("div")
-
-placeholder.style.opacity=".6"
-placeholder.style.fontSize="12px"
-placeholder.style.padding="6px"
-placeholder.style.borderLeft="3px solid #888"
-
-placeholder.textContent="Message hidden by ChatGPT DOM Cleaner"
-
-turn.replaceWith(placeholder)
-
-removed++
-
-}
-
-}
-
-// ---------------- RESTORE ----------------
-
-function restoreTurns(){
-
-if(window.scrollY>200)
-return
-
-const container=detectConversationContainer()
-
-if(!container) return
-
-const chunk=settings.restoreChunkSize||10
-
-for(let i=0;i<chunk;i++){
-
-if(!hiddenTurns.length)
-break
-
-const turn=hiddenTurns.pop()
-
-container.prepend(turn)
-
-}
-
-}
-
-// ---------------- DOM SAFETY ----------------
-
-function domSafetyCheck(){
-
-const nodes=document.getElementsByTagName("*").length
-
-if(nodes>settings.hardLimit){
-
-console.warn("DOM Cleaner HARD LIMIT",nodes)
-
-let removed=0
-
-for(const turn of turnRegistry){
-
-if(pinnedTurns.has(turn))
-continue
-
-if(turnRegistry.length-removed<=settings.aggressiveKeep)
-break
-
-turn.remove()
-
-removed++
-
-}
-
-}
-else if(nodes>settings.softLimit){
-
-trimTurns()
-
-}
-
-}
-
-// ---------------- PINNING ----------------
-
-function enablePinning(){
-
-document.addEventListener("dblclick",e=>{
-
-const turn=e.target.closest('article[data-testid^="conversation-turn"]')
-
-if(!turn) return
-
-pinnedTurns.add(turn)
-
-turn.style.outline="2px solid #4caf50"
-
-})
-
-}
-
-// ---------------- PANEL ----------------
-
-function createPanel(){
-
-const panel=document.createElement("div")
-
-panel.style.position="fixed"
-panel.style.bottom="10px"
-panel.style.right="10px"
-panel.style.background="rgba(0,0,0,.75)"
-panel.style.color="white"
-panel.style.padding="8px"
-panel.style.borderRadius="6px"
-panel.style.fontSize="11px"
-panel.style.zIndex="9999"
-
-const cleanBtn=document.createElement("button")
-
-cleanBtn.textContent="Clean DOM"
-cleanBtn.style.display="block"
-cleanBtn.onclick=trimTurns
-
-panel.appendChild(cleanBtn)
-
-statsText=document.createElement("div")
-panel.appendChild(statsText)
-
-document.body.appendChild(panel)
-
-}
-
-function updateStats(){
-
-if(!statsText) return
-
-const nodes=document.getElementsByTagName("*").length
-
-statsText.textContent=`Turns:${turnRegistry.length} DOM:${nodes}`
-
-}
-
-// ---------------- CONTAINER DETECTION ----------------
-
-function detectConversationContainer(){
-
-const firstTurn=document.querySelector('article[data-testid^="conversation-turn"]')
-
-if(!firstTurn) return null
-
-return firstTurn.parentElement
-
-}
-
-// ---------------- OBSERVER ----------------
-
-function startObserver(){
-
-const container=detectConversationContainer()
-
-if(!container) return
-
-const observer=new MutationObserver(mutations=>{
-
-if(observerTimer) return
-
-observerTimer=setTimeout(()=>{
-
-mutations.forEach(m=>{
-
-m.addedNodes.forEach(node=>{
-
-if(node.nodeType!==1) return
-
-if(node.matches?.('article[data-testid^="conversation-turn"]')){
-
-if(!turnRegistry.includes(node))
-turnRegistry.push(node)
-
-processTurn(node)
-reevaluateCodeCollapse()
-
-}
-
-})
-
-})
-
-observerTimer=null
-
-},200)
-
-})
-
-observer.observe(container,{childList:true})
-
-}
-
-// ---------------- SCROLL ----------------
-
-function startScrollHandler(){
-
-window.addEventListener("scroll",()=>{
-
-if(scrollTimer) return
-
-scrollTimer=setTimeout(()=>{
-
-restoreTurns()
-reevaluateCodeCollapse()
-
-scrollTimer=null
-
-},150)
-
-})
-
-}
-
-// ---------------- WAIT FOR CHAT ----------------
-
-function waitForConversation(){
-
-return new Promise(resolve=>{
-
-const interval=setInterval(()=>{
-
-if(document.querySelector('article[data-testid^="conversation-turn"]')){
-
-clearInterval(interval)
-resolve()
-
-}
-
-},200)
-
-})
-
-}
-
-// ---------------- INIT ----------------
-
-async function init(){
-
-await loadSettings()
-
-createPanel()
-enablePinning()
-
-await waitForConversation()
-
-initialScan()
-startObserver()
-startScrollHandler()
-
-setInterval(domSafetyCheck,10000)
-setInterval(updateStats,10000)
-
+    setInterval(domSafetyCheck, 10000)
+    setInterval(updateStats, 10000)
 }
 
 init()
